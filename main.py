@@ -34,97 +34,131 @@ plt.savefig("2.png")
 plt.clf()
 
 #24.04
-kmeans = KMeans(n_clusters=4, init='k-means++', random_state=0).fit(df)
+  import numpy as np
+  import pandas as pd
+  from sklearn.cluster import KMeans
+  from sklearn.preprocessing import LabelEncoder, StandardScaler
+  import matplotlib.pyplot as plt
+  import seaborn as sns
+  from collections import Counter
 
-print(kmeans)
-print(kmeans.cluster_centers_)
-print(kmeans.inertia_)
-print(kmeans.n_iter_)
+  # =========================
+  # 1. Генерация данных
+  # =========================
+  np.random.seed(42)
+  n = 100
 
-from collections import Counter
-Counter(kmeans.labels_)
-print(Counter(kmeans.labels_))
+  data = {
+      'param1': np.random.uniform(0.01, 1, n),
+      'param2': np.random.randint(1, 301, n),
+      'city': np.random.choice(['Самара', 'Тольятти', 'Чапаевск'], n)
+  }
 
-import seaborn as sns
-import matplotlib.pyplot as plt
-sns.scatterplot(data=df, x="var1", y="var2", hue=kmeans.labels_)
-plt.savefig('3.png')
-plt.clf()
+  df = pd.DataFrame(data)
 
-sns.scatterplot(data=df, x="var1", y="var2", hue=kmeans.labels_)
-plt.scatter(kmeans.cluster_centers_[:, 0], kmeans.cluster_centers_[:, 1], c="r", s=80, label="centroids")
-plt.legend()
-plt.savefig('4.png')
+  print("=== Исходные данные (первые 5 строк) ===")
+  print(df.head())
+  print()
 
-#задание по вариантам
-import numpy as np
-import pandas as pd
-from sklearn.cluster import KMeans
-from sklearn.preprocessing import LabelEncoder, StandardScaler
-import matplotlib.pyplot as plt
+  # =========================
+  # 2. Кодирование категорий
+  # =========================
+  le = LabelEncoder()
+  df['city_encoded'] = le.fit_transform(df['city'])
 
-# 1. Генерация данных
-np.random.seed(42)
+  print("=== Кодировка городов ===")
+  for city, code in zip(le.classes_, le.transform(le.classes_)):
+      print(f"{city} -> {code}")
+  print()
 
-n = 100  # количество записей
+  # =========================
+  # 3. Подготовка данных
+  # =========================
+  X = df[['param1', 'param2', 'city_encoded']]
 
-data = {
-    'param1': np.random.uniform(0.01, 1, n),
-    'param2': np.random.randint(1, 301, n),
-    'city': np.random.choice(['Самара', 'Тольятти', 'Чапаевск'], n)
-}
+  # Масштабирование
+  scaler = StandardScaler()
+  X_scaled = scaler.fit_transform(X)
 
-df = pd.DataFrame(data)
+  print("=== Масштабированные данные (первые 5 строк) ===")
+  print(X_scaled[:5])
+  print()
 
-print("=== Исходные данные (первые 5 строк) ===")
-print(df.head())
-print()
+  # =========================
+  # 4. KMeans
+  # =========================
+  kmeans = KMeans(n_clusters=3, init='k-means++', random_state=42)
+  df['cluster'] = kmeans.fit_predict(X_scaled)
 
-# 2. Кодирование городов
-le = LabelEncoder()
-df['city_encoded'] = le.fit_transform(df['city'])
+  print("=== Результат кластеризации (первые 5 строк) ===")
+  print(df.head())
+  print()
 
-print("=== Кодировка городов ===")
-for city, code in zip(le.classes_, le.transform(le.classes_)):
-    print(f"{city} -> {code}")
-print()
+  # =========================
+  # 5. Основные характеристики
+  # =========================
+  print("=== inertia (сумма квадратов расстояний) ===")
+  print(kmeans.inertia_)
+  print()
 
-# 3. Подготовка данных
-X = df[['param1', 'param2', 'city_encoded']]
+  print("=== Количество итераций ===")
+  print(kmeans.n_iter_)
+  print()
 
-# 4. Масштабирование
-scaler = StandardScaler()
-X_scaled = scaler.fit_transform(X)
+  print("=== Размеры кластеров ===")
+  print(Counter(kmeans.labels_))
+  print()
 
-print("=== Пример масштабированных данных (первые 5 строк) ===")
-print(X_scaled[:5])
-print()
+  # =========================
+  # 6. Центроиды
+  # =========================
+  print("=== Центроиды (в масштабированном виде) ===")
+  print(kmeans.cluster_centers_)
+  print()
 
-# 5. Кластеризация
-kmeans = KMeans(n_clusters=3, random_state=42)
-df['cluster'] = kmeans.fit_predict(X_scaled)
+  # Обратное преобразование
+  centroids_original = scaler.inverse_transform(kmeans.cluster_centers_)
 
-print("=== Результаты кластеризации (первые 5 строк) ===")
-print(df.head())
-print()
+  print("=== Центроиды (в исходных параметрах) ===")
+  for i, center in enumerate(centroids_original):
+      param1 = center[0]
+      param2 = int(center[1])
+      city_code = int(round(center[2]))
+      city_name = le.inverse_transform([city_code])[0]
 
-# 6. Центры кластеров
-print("=== Центры кластеров ===")
-print(kmeans.cluster_centers_)
-print()
+      print(f"Кластер {i}:")
+      print(f"  param1 = {param1:.4f}")
+      print(f"  param2 = {param2}")
+      print(f"  city   = {city_name}")
+      print()
 
-# 7. Количество объектов в каждом кластере
-print("=== Размеры кластеров ===")
-print(df['cluster'].value_counts())
-print()
+  # =========================
+  # 7. График 1 (без центроидов)
+  # =========================
+  plt.figure()
+  sns.scatterplot(data=df, x="param1", y="param2", hue="cluster")
+  plt.title("Кластеры")
+  plt.savefig("clusters.png")
+  plt.close()
 
-# 8. Сохранение графика
-plt.figure()
-plt.scatter(df['param1'], df['param2'], c=df['cluster'])
-plt.xlabel('param1')
-plt.ylabel('param2')
-plt.title('Кластеризация KMeans')
-plt.savefig("clusters.png")  # сохраняем в файл
-plt.close()
+  print("График clusters.png сохранён")
 
-print("График сохранён в файл clusters.png")
+  # =========================
+  # 8. График 2 (с центроидами)
+  # =========================
+  centroids_x = centroids_original[:, 0]
+  centroids_y = centroids_original[:, 1]
+
+  plt.figure()
+  sns.scatterplot(data=df, x="param1", y="param2", hue="cluster")
+
+  plt.scatter(centroids_x, centroids_y,
+              c="red", s=120, marker="X", label="centroids")
+
+  plt.legend()
+  plt.title("Кластеры с центроидами")
+
+  plt.savefig("clusters_with_centroids.png")
+  plt.close()
+
+  print("График clusters_with_centroids.png сохранён")
